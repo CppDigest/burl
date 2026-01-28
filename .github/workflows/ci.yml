@@ -1,0 +1,141 @@
+#
+# Copyright (c) 2025 Vinnie Falco (vinnie dot falco at gmail dot com)
+#
+# Distributed under the Boost Software License, Version 1.0. (See accompanying
+# file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#
+# Official repository: https://github.com/cppalliance/burl
+#
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+      - feature/**
+      - fix/**
+
+concurrency:
+  group: ${{format('{0}:{1}', github.repository, github.ref)}}
+  cancel-in-progress: true
+
+env:
+  UBSAN_OPTIONS: "print_stacktrace=1"
+
+jobs:
+  build:
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Latest MSVC on Windows
+          - name: "MSVC 14.42: C++20"
+            compiler: "msvc"
+            version: "14.42"
+            cxxstd: "20"
+            runs-on: "windows-2022"
+            generator: "Visual Studio 17 2022"
+            build-type: "Release"
+
+          # Latest GCC on Linux
+          - name: "GCC 15: C++20"
+            compiler: "gcc"
+            version: "15"
+            cxxstd: "20"
+            cxx: "g++-15"
+            cc: "gcc-15"
+            runs-on: "ubuntu-latest"
+            container: "ubuntu:25.04"
+            build-type: "Release"
+
+          # Latest Clang on Linux
+          - name: "Clang 20: C++20"
+            compiler: "clang"
+            version: "20"
+            cxxstd: "20"
+            cxx: "clang++-20"
+            cc: "clang-20"
+            runs-on: "ubuntu-latest"
+            container: "ubuntu:24.04"
+            build-type: "Release"
+
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+    container:
+      image: ${{ matrix.container }}
+      options: --privileged
+
+    timeout-minutes: 60
+
+    steps:
+      - name: Clone Boost.Burl
+        uses: actions/checkout@v4
+        with:
+          path: burl-root
+
+      - name: Setup C++
+        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.0
+        id: setup-cpp
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+          check-latest: true
+
+      - name: Install packages
+        uses: alandefreitas/cpp-actions/package-install@v1.9.0
+        with:
+          apt-get: build-essential
+
+      - name: Clone Boost
+        uses: alandefreitas/cpp-actions/boost-clone@v1.9.0
+        id: boost-clone
+        with:
+          branch: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
+          boost-dir: boost-source
+          scan-modules-dir: burl-root
+          scan-modules-ignore: burl
+
+      - name: Patch Boost
+        id: patch
+        run: |
+          set -xe
+          module=burl
+          echo "module=$module" >> $GITHUB_OUTPUT
+          
+          workspace_root=$(echo "$GITHUB_WORKSPACE" | sed 's/\\/\//g')
+          echo -E "workspace_root=$workspace_root" >> $GITHUB_OUTPUT
+          
+          rm -r "boost-source/libs/$module" || true
+          cp -r boost-source boost-root
+          
+          cd boost-root
+          boost_root="$(pwd)"
+          boost_root=$(echo "$boost_root" | sed 's/\\/\//g')
+          echo -E "boost_root=$boost_root" >> $GITHUB_OUTPUT
+          
+          cp -r "$workspace_root"/burl-root "libs/$module"
+
+      - name: CMake Build
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.0
+        with:
+          source-dir: boost-root
+          build-dir: __build__
+          generator: ${{ matrix.generator }}
+          build-type: ${{ matrix.build-type }}
+          build-target: tests
+          run-tests: true
+          cxxstd: ${{ matrix.cxxstd }}
+          cc: ${{ steps.setup-cpp.outputs.cc || matrix.cc }}
+          cxx: ${{ steps.setup-cpp.outputs.cxx || matrix.cxx }}
+          cmake-version: '>=3.20'
+          extra-args: |
+            -D Boost_VERBOSE=ON
+            -D BOOST_INCLUDE_LIBRARIES=burl
+          ref-source-dir: boost-root/libs/burl
