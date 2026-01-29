@@ -92,7 +92,7 @@ jobs:
           curl -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
-            https://api.github.com/repos/cppalliance/boost-workspace/dispatches \
+            https://api.github.com/repos/cppdigest/boost-workspace/dispatches \
             -d "{
               \"event_type\": \"slodd-fix\",
               \"client_payload\": {
