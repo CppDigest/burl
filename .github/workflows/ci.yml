@@ -110,6 +110,16 @@ jobs:
         run: |
           git clone --depth 1 -b develop https://github.com/cppalliance/capy.git boost-source/libs/capy
 
+      - name: Patch http for std::is_error_code_enum
+        run: |
+          cat >> boost-source/libs/http/include/boost/http/server/router_types.hpp << 'PATCH_EOF'
+
+namespace std {
+template<>
+struct is_error_code_enum<::boost::http::route> : true_type {};
+} // std
+PATCH_EOF
+
       - name: Patch Boost
         id: patch
         run: |
