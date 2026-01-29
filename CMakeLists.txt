@@ -61,8 +61,7 @@ set(BOOST_BURL_DEPENDENCIES
     Boost::url)
 
 # OpenSSL dependencies (added after find_package)
-set(BOOST_BURL_OPENSSL_DEPENDENCIES
-    Boost::corosio_openssl)
+set(BOOST_BURL_OPENSSL_DEPENDENCIES)
 
 foreach (BOOST_BURL_DEPENDENCY ${BOOST_BURL_DEPENDENCIES})
     if (BOOST_BURL_DEPENDENCY MATCHES "^[ ]*Boost::([A-Za-z0-9_]+)[ ]*$")
@@ -131,7 +130,7 @@ endif ()
 # OpenSSL
 #
 #-------------------------------------------------
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL)
 
 #-------------------------------------------------
 #
